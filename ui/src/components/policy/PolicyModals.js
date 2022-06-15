@@ -16,7 +16,7 @@ const StatusMessage = ({ message, isSuccess }) => {
   if (message && isSuccess) {
     return (
       <Message positive>
-        <Message.Header>Success</Message.Header>
+        <Message.Header>성공!</Message.Header>
         <Message.Content>
           <ReactMarkdown linkTarget="_blank" children={message} />
         </Message.Content>
@@ -26,7 +26,7 @@ const StatusMessage = ({ message, isSuccess }) => {
   if (message && !isSuccess) {
     return (
       <Message negative>
-        <Message.Header>Oops! There was a problem.</Message.Header>
+        <Message.Header>Oops! 문제가 발생하였어요.</Message.Header>
         <Message.Content>
           <ReactMarkdown linkTarget="_blank" children={message} />
         </Message.Content>
@@ -59,7 +59,7 @@ export const JustificationModal = ({ handleSubmit }) => {
   // TODO, there are too many state updates happening here. try do more in the reducer.
   const handleJustificationSubmit = async () => {
     if (!justification) {
-      setMessage("No empty justification is allowed.");
+      setMessage("요청 내용을 반드시 입력해주세요.");
       setIsSuccess(false);
       return;
     }
@@ -99,14 +99,14 @@ export const JustificationModal = ({ handleSubmit }) => {
       open={togglePolicyModal}
       closeOnDimmerClick={false}
     >
-      <Modal.Header>Please enter in your justification</Modal.Header>
+      <Modal.Header>요청의 내용을 입력해주세요</Modal.Header>
       <Modal.Content>
         <Dimmer.Dimmable dimmed={isPolicyEditorLoading}>
           <StatusMessage isSuccess={isSuccess} message={message} />
           {!isSuccess && (
             <Form>
               <TextArea
-                placeholder="Tell us why you need this change"
+                placeholder="요청의 배경이나 내용을 가능한 상세히 작성해주세요."
                 onChange={handleJustificationUpdate}
                 style={{ width: "fluid" }}
                 defaultValue={justification}

@@ -59,7 +59,10 @@ async def send_slack_notification_new_policy_request(
     if not admin_approved and not approval_probe_approved:
         groups_request_assignee = config.get("groups.request_assignee")
         if not groups_request_assignee:
-            groups_request_assignee = config.get("application_admin")
+            log.error(
+                f"Missing request assignee group for slack notification."
+                )
+            return
         assignee = random.choice(groups_request_assignee)
         assignee_info = client.users_lookupByEmail(email=assignee)
         assignee_id = assignee_info["user"]["id"]
