@@ -74,7 +74,7 @@ class PoliciesPageConfigHandler(BaseHandler):
                         "placeholder": "Users",
                         "key": "users",
                         "type": "input",
-                        "style": {"width": "70px"},
+                        "width": 5,
                     },
                 ],
             },
