@@ -157,7 +157,7 @@ async def _build_policy_payload(
             },
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*적용 대상* \n {arn}"},
+                "text": {"type": "mrkdwn", "text": f"*적용 대상* \n `{arn}`"},
             },
             {
                 "type": "section",
