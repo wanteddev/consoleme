@@ -1,5 +1,6 @@
 import sys
 import uuid
+import random
 
 import tornado.escape
 import ujson as json
@@ -10,6 +11,8 @@ from consoleme.config import config
 from consoleme.lib.plugins import get_plugin_by_name
 from consoleme.lib.policies import get_policy_request_uri_v2
 from consoleme.models import ExtendedRequestModel
+
+from slack import WebClient
 
 log = config.get_logger()
 stats = get_plugin_by_name(config.get("plugins.metrics", "default_metrics"))()
@@ -39,8 +42,31 @@ async def send_slack_notification_new_policy_request(
         # Don't send slack notifications for policies that were auto approved due to admin status
         return None
 
+    slack_api_token = config.get("slack.api_token", False)
+    if not slack_api_token:
+        log.error(
+            f"Missing slack api token for slack notification."
+        )
+        return
+
+    client = WebClient(token=slack_api_token)
     function = f"{__name__}.{sys._getframe().f_code.co_name}"
     requester = extended_request.requester_email
+    requester_info = client.users_lookupByEmail(email=requester)
+    requester_id = requester_info["user"]["id"]
+
+    assignee_id = None
+    if not admin_approved and not approval_probe_approved:
+        groups_request_assignee = config.get("groups.request_assignee")
+        if not groups_request_assignee:
+            log.error(
+                f"Missing request assignee group for slack notification."
+                )
+            return
+        assignee = random.choice(groups_request_assignee)
+        assignee_info = client.users_lookupByEmail(email=assignee)
+        assignee_id = assignee_info["user"]["id"]
+
     arn = extended_request.principal.principal_arn
     stats.count(function, tags={"user": requester, "arn": arn})
 
@@ -59,8 +85,9 @@ async def send_slack_notification_new_policy_request(
     log.debug(log_data)
 
     payload = await _build_policy_payload(
-        extended_request, requester, arn, admin_approved, approval_probe_approved
-    )
+        extended_request, requester_id, arn, admin_approved, approval_probe_approved,
+        assignee_id
+        )
 
     return await send_slack_notification(payload, payload_id)
 
@@ -102,13 +129,18 @@ async def _build_policy_payload(
     arn: str,
     admin_approved: bool,
     approval_probe_approved: bool,
+    assignee: str = None
 ):
     request_uri = await get_policy_request_uri_v2(extended_request)
-    pre_text = "A new request has been created"
+    pre_text = ""
+    request_text = f"<@{requester}>"
     if admin_approved:
-        pre_text += " and auto-approved by admin"
+        pre_text += "관리자에 의해 자동 승인되었습니다."
     elif approval_probe_approved:
-        pre_text += " and auto-approved by auto-approval probe"
+        pre_text += "auto-approved by auto-approval probe"
+    elif assignee:
+        pre_text += f"*담당자* :arrow_forward: <@{assignee}>"
+        request_text += " 님, \n 요청 사항은 확인 후 스레드에 업데이트됩니다."
 
     payload = {
         "blocks": [
@@ -116,21 +148,21 @@ async def _build_policy_payload(
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*<{request_uri}|ConsoleMe Policy Change Request>*",
+                    "text": f"*<{request_uri}|ConsoleMe 권한 요청>*",
                 },
             },
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*User* \n {requester}"},
+                "text": {"type": "mrkdwn", "text": f"*신청자* \n {request_text}"},
             },
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*Resource* \n {arn}"},
+                "text": {"type": "mrkdwn", "text": f"*적용 대상* \n {arn}"},
             },
             {
                 "type": "section",
                 "fields": [
-                    {"text": "*Justification*", "type": "mrkdwn"},
+                    {"text": "*요청 내용*", "type": "mrkdwn"},
                     {"type": "plain_text", "text": "\n"},
                     {
                         "type": "plain_text",
@@ -143,7 +175,7 @@ async def _build_policy_payload(
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"{pre_text}. Click *<{request_uri}|here>* to view it.",
+                    "text": f"{pre_text}",
                 },
             },
         ]
