@@ -1,0 +1,33 @@
+on:
+  push:
+    branches: [deploy-test]
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Run commands
+        run: |
+          ls
+          make install
+          aws s3 cp ./consoleme/templates/* s3://devops-monthly-report/consoleme/templates/
+
+      # - name: Run commands
+      #   run: |
+      #     aws ssm send-command \
+      #     --instance-ids "${{ secrets.INSTANCE_ID }}" \
+      #     --document-name "AWS-RunShellScript" \
+      #     --comment "devops.wanted.jobs" \
+      #     --parameters '{"commands":["runuser -l ubuntu -c \"pip install -r requirements.txt -r requirements-test.txt -e .;sudo systemctl stop consoleme.service;aws s3 cp s3://devops-monthly-report/consoleme/templates/* ./consoleme/templates/;python scripts/retrieve_or_decode_configuration.py;sudo systemctl start consoleme.service;\""]}' \
+      #     --output text
