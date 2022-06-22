@@ -27,11 +27,20 @@ jobs:
           yarn --cwd ui build:prod
           aws s3 sync ./consoleme/templates/ s3://devops-monthly-report/consoleme/templates/
 
+      - name: Run commands
+        run: |
+          aws ssm send-command \
+          --instance-ids "${{ secrets.INSTANCE_ID }}" \
+          --document-name "AWS-RunShellScript" \
+          --comment "iam.wanted.jobs" \
+          --parameters '{"commands":["runuser -l ubuntu -c \"aws s3 sync s3://devops-monthly-report/consoleme/templates/ /home/ubuntu/templates/;\""]}' \
+          --output text
+
       # - name: Run commands
       #   run: |
       #     aws ssm send-command \
       #     --instance-ids "${{ secrets.INSTANCE_ID }}" \
       #     --document-name "AWS-RunShellScript" \
-      #     --comment "devops.wanted.jobs" \
-      #     --parameters '{"commands":["runuser -l ubuntu -c \"pip install -r requirements.txt -r requirements-test.txt -e .;sudo systemctl stop consoleme.service;aws s3 cp s3://devops-monthly-report/consoleme/templates/* ./consoleme/templates/;python scripts/retrieve_or_decode_configuration.py;sudo systemctl start consoleme.service;\""]}' \
+      #     --comment "iam.wanted.jobs" \
+      #     --parameters '{"commands":["runuser -l ubuntu -c \"pip install -r requirements.txt -r requirements-test.txt -e .;sudo systemctl stop consoleme.service;aws s3 sync s3://devops-monthly-report/consoleme/templates/ /home/ubuntu/consoleme/consoleme/templates/;python scripts/retrieve_or_decode_configuration.py;sudo systemctl start consoleme.service;\""]}' \
       #     --output text
