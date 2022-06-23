@@ -1,0 +1,37 @@
+on:
+  push:
+    branches: [master]
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Build UI and Upload to S3
+        run: |
+          sudo apt-get install build-essential libxml2-dev libxmlsec1 libxmlsec1-dev libxmlsec1-openssl musl-dev libcurl4-nss-dev python3-dev pkg-config -y
+          curl -sL https://deb.nodesource.com/setup_14.x | sudo bash
+          sudo apt-get install -y nodejs
+          sudo npm install yarn -g
+          yarn --cwd ui
+          yarn --cwd ui build:prod
+          aws s3 sync ./consoleme/templates/ s3://devops-monthly-report/consoleme/templates/
+
+      - name: Sync template from S3 and Restart server
+        run: |
+          aws ssm send-command \
+          --instance-ids "${{ secrets.INSTANCE_ID }}" \
+          --document-name "AWS-RunShellScript" \
+          --comment "iam.wanted.jobs" \
+          --parameters '{"commands":["runuser -l ubuntu -c \"cd /home/ubuntu/consoleme;git pull;pip install -r requirements.txt -r requirements-test.txt -e .;sudo systemctl stop consoleme.service;rm -rf /home/ubuntu/templates/;cp -r /home/ubuntu/consoleme/consoleme/templates/ /home/ubuntu/templates/;aws s3 sync s3://devops-monthly-report/consoleme/templates/ /home/ubuntu/consoleme/consoleme/templates/;python scripts/retrieve_or_decode_configuration.py;sudo systemctl start consoleme.service;\""]}' \
+          --output text
