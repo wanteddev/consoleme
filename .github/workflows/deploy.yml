@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [deploy-test]
+    branches: [master]
 jobs:
   deploy:
     name: deploy
